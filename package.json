@@ -1,0 +1,41 @@
+{
+  "name": "rf-personal-tech-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run build -w @rf/shared && concurrently -n shared,api,web -c blue,green,magenta \"npm run dev -w @rf/shared\" \"npm run dev -w @rf/api\" \"npm run dev -w @rf/web\"",
+    "build": "npm run build -w @rf/shared && npm run build -w @rf/api && npm run build -w @rf/web",
+    "typecheck": "npm run typecheck -w @rf/shared && npm run typecheck -w @rf/api && npm run typecheck -w @rf/web",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "npm run test -w @rf/api && npm run test -w @rf/web",
+    "db:generate": "npm run db:generate -w @rf/api",
+    "db:migrate": "npm run db:migrate -w @rf/api",
+    "db:seed": "npm run db:seed -w @rf/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "argon2@0.41.1": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true,
+    "esbuild@0.25.12": true
+  }
+}

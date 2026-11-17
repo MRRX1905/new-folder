@@ -1,0 +1,44 @@
+[data-theme="void"] {
+  --rf-bg: #050506;
+  --rf-accent: #ff1f3d;
+  --rf-chrome: #d6dce6;
+  --rf-glow: rgba(255, 31, 61, 0.32);
+}
+
+[data-theme="ember"] {
+  --rf-bg: #0a0503;
+  --rf-bg-soft: #140805;
+  --rf-accent: #ff5a1f;
+  --rf-chrome: #f0c6a8;
+  --rf-glow: rgba(255, 90, 31, 0.34);
+  --rf-accent-soft: rgba(255, 90, 31, 0.14);
+}
+
+[data-theme="ion"] {
+  --rf-bg: #03070a;
+  --rf-bg-soft: #051016;
+  --rf-accent: #37e0ff;
+  --rf-accent-contrast: #031015;
+  --rf-chrome: #b8f4ff;
+  --rf-glow: rgba(55, 224, 255, 0.3);
+  --rf-accent-soft: rgba(55, 224, 255, 0.12);
+}
+
+[data-theme="chrome"] {
+  --rf-bg: #070809;
+  --rf-bg-soft: #101215;
+  --rf-accent: #e7ecf3;
+  --rf-accent-contrast: #060708;
+  --rf-chrome: #ffffff;
+  --rf-glow: rgba(214, 220, 230, 0.22);
+  --rf-accent-soft: rgba(214, 220, 230, 0.12);
+}
+
+[data-theme="signal"] {
+  --rf-bg: #060407;
+  --rf-bg-soft: #0f0713;
+  --rf-accent: #d926ff;
+  --rf-chrome: #f0c9ff;
+  --rf-glow: rgba(217, 38, 255, 0.3);
+  --rf-accent-soft: rgba(217, 38, 255, 0.14);
+}

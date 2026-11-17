@@ -1,0 +1,21 @@
+{
+  "name": "@rf/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "typecheck": "tsc -b --pretty"
+  }
+}

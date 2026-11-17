@@ -1,0 +1,415 @@
+// ===========================================================================
+// RF Personal Tech Dashboard — Prisma schema
+// Target: PostgreSQL 16, Prisma 6
+//
+// ID POLICY (TD-07, binding)
+//   Every primary key is `String @id` with NO database-level default.
+//   Values are 24-character cuid2 strings generated in the application layer
+//   via `createId()` from `@paralleldrive/cuid2`.
+//   DO NOT add `@default(cuid())`, `@default(uuid())`, `@default(autoincrement())`
+//   or any other id default. Seed rows use stable 24-character cuid2-shaped
+//   identifiers so that `upsert` stays idempotent.
+//
+// SORT POLICY (TD-07, binding)
+//   A–Z ordering is `ORDER BY <field>Sort ASC, id ASC`. Every sortable field
+//   has a companion `<field>Sort` column holding the lowercased, diacritic
+//   stripped value, maintained by the application on write. Each companion
+//   column is indexed; `id` is the deterministic tiebreaker.
+//
+// DELETE POLICY (TD-09)
+//   Media references from content use `onDelete: Restrict`; deleting media that
+//   is still referenced must fail with 409. Prisma/Cloudinary assets are not
+//   deleted by the application.
+// ===========================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum CollectionType {
+  AI      @map("ai")
+  TOOL    @map("tool")
+  WEBSITE @map("website")
+
+  @@map("collection_type")
+}
+
+enum CategoryKind {
+  AI      @map("ai")
+  TOOL    @map("tool")
+  WEBSITE @map("website")
+  PROJECT @map("project")
+
+  @@map("category_kind")
+}
+
+enum UsageStatus {
+  CURRENTLY_USING @map("currently_using")
+  PREVIOUSLY_USED @map("previously_used")
+  EXPLORING       @map("exploring")
+  WANT_TO_TRY     @map("want_to_try")
+
+  @@map("usage_status")
+}
+
+enum Locale {
+  ID @map("id")
+  EN @map("en")
+
+  @@map("locale")
+}
+
+// ---------------------------------------------------------------------------
+// Authentication (TD-06)
+// ---------------------------------------------------------------------------
+
+model Admin {
+  id                String    @id
+  username          String    @unique
+  passwordHash      String
+  passwordUpdatedAt DateTime
+  lastLoginAt       DateTime?
+  createdAt         DateTime  @default(now())
+  sessions          Session[]
+
+  @@map("admins")
+}
+
+model Session {
+  id                String    @id
+  tokenHash         String    @unique
+  adminId           String
+  createdAt         DateTime  @default(now())
+  expiresAt         DateTime
+  absoluteExpiresAt DateTime
+  lastUsedAt        DateTime
+  revokedAt         DateTime?
+  ipHash            String?
+  userAgentHash     String?
+  admin             Admin     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  // Supports the delete-expired-sessions maintenance path.
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ---------------------------------------------------------------------------
+// Owner identity (singleton: exactly one row, id assigned by the application)
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id            String   @id
+  displayName   String
+  tagline       String?
+  bio           String   @db.Text
+  interests     String   @db.Text
+  goals         String   @db.Text
+  avatarMediaId String?
+  locationLabel String?
+  sourceLocale  Locale
+  updatedAt     DateTime @updatedAt
+  avatarMedia   Media?   @relation("ProfileAvatar", fields: [avatarMediaId], references: [id], onDelete: Restrict)
+
+  @@index([avatarMediaId])
+  @@map("profiles")
+}
+
+// ---------------------------------------------------------------------------
+// Media library (TD-09, TD-14)
+// ---------------------------------------------------------------------------
+
+model MediaFolder {
+  id        String   @id
+  name      String
+  nameSort  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  media     Media[]
+
+  @@index([nameSort])
+  @@map("media_folders")
+}
+
+model Media {
+  id               String   @id
+  publicId         String   @unique
+  secureUrl        String
+  format           String
+  resourceType     String
+  bytes            Int
+  width            Int?
+  height           Int?
+  alt              String?
+  originalName     String
+  originalNameSort String
+  sourceLocale     Locale
+  folderId         String
+  createdAt        DateTime @default(now())
+
+  folder          MediaFolder      @relation(fields: [folderId], references: [id], onDelete: Restrict)
+  collectionItems CollectionItem[] @relation("CollectionItemLogo")
+  projects        Project[]        @relation("ProjectCover")
+  socialMedia     SocialMedia[]    @relation("SocialMediaLogo")
+  learningFields  LearningField[]  @relation("LearningFieldLogo")
+  profiles        Profile[]        @relation("ProfileAvatar")
+  resumes         Resume[]         @relation("ResumeMedia")
+
+  @@index([folderId, createdAt])
+  @@index([originalNameSort])
+  @@map("media")
+}
+
+// ---------------------------------------------------------------------------
+// Taxonomy
+// ---------------------------------------------------------------------------
+
+model Category {
+  id            String           @id
+  kind          CategoryKind
+  name          String
+  nameSort      String
+  description   String?
+  sortOrder     Int              @default(0)
+  sourceLocale  Locale
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  subcategories Subcategory[]
+  items         CollectionItem[]
+  projects      Project[]
+
+  @@unique([kind, name])
+  @@index([kind, nameSort])
+  @@index([nameSort])
+  @@map("categories")
+}
+
+model Subcategory {
+  id           String           @id
+  categoryId   String
+  name         String
+  nameSort     String
+  sortOrder    Int              @default(0)
+  sourceLocale Locale
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  category     Category         @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  items        CollectionItem[]
+
+  @@unique([categoryId, name])
+  @@index([categoryId, nameSort])
+  @@index([nameSort])
+  @@map("subcategories")
+}
+
+// ---------------------------------------------------------------------------
+// AI / Tools / Websites collection
+// ---------------------------------------------------------------------------
+
+model CollectionItem {
+  id            String         @id
+  type          CollectionType
+  categoryId    String
+  subcategoryId String?
+  name          String
+  nameSort      String
+  description   String         @db.Text
+  logoMediaId   String?
+  usageStatus   UsageStatus
+  sourceLocale  Locale
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  subcategory Subcategory? @relation(fields: [subcategoryId], references: [id], onDelete: SetNull)
+  logo        Media?       @relation("CollectionItemLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+  links       ItemLink[]
+
+  @@index([type, categoryId])
+  @@index([type, usageStatus])
+  @@index([nameSort])
+  @@index([subcategoryId])
+  @@index([logoMediaId])
+  @@map("collection_items")
+}
+
+model ItemLink {
+  id        String @id
+  itemId    String
+  label     String
+  url       String
+  sortOrder Int    @default(0)
+
+  item CollectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, sortOrder])
+  @@map("item_links")
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+model Project {
+  id           String   @id
+  categoryId   String
+  title        String
+  titleSort    String
+  description  String   @db.Text
+  coverMediaId String?
+  primaryUrl   String
+  sourceLocale Locale
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cover    Media?   @relation("ProjectCover", fields: [coverMediaId], references: [id], onDelete: Restrict)
+
+  @@index([categoryId, titleSort])
+  @@index([titleSort])
+  @@index([coverMediaId])
+  @@map("projects")
+}
+
+// ---------------------------------------------------------------------------
+// Social media, learning journey, devices
+// ---------------------------------------------------------------------------
+
+model SocialMedia {
+  id           String   @id
+  platform     String
+  platformSort String
+  username     String
+  profileUrl   String   @unique
+  logoMediaId  String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  logo Media? @relation("SocialMediaLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+
+  @@index([platformSort])
+  @@index([logoMediaId])
+  @@map("social_media")
+}
+
+model LearningField {
+  id           String   @id
+  name         String
+  nameSort     String
+  description  String?
+  logoMediaId  String?
+  sortOrder    Int      @default(0)
+  sourceLocale Locale
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  logo Media? @relation("LearningFieldLogo", fields: [logoMediaId], references: [id], onDelete: Restrict)
+
+  @@index([nameSort])
+  @@index([logoMediaId])
+  @@map("learning_fields")
+}
+
+model Device {
+  id              String   @id
+  name            String
+  nameSort        String
+  processor       String
+  ram             String
+  gpu             String?
+  storage         String
+  operatingSystem String
+  notes           String?
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([nameSort])
+  @@map("devices")
+}
+
+// ---------------------------------------------------------------------------
+// Timeline
+// ---------------------------------------------------------------------------
+
+model TimelineEntry {
+  id           String   @id
+  date         DateTime @db.Date
+  title        String
+  category     String
+  description  String   @db.Text
+  sourceLocale Locale
+  createdAt    DateTime @default(now())
+
+  @@index([date])
+  @@map("timeline_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Resume / CV (single active file)
+// ---------------------------------------------------------------------------
+
+model Resume {
+  id        String   @id
+  mediaId   String   @unique
+  updatedAt DateTime @updatedAt
+
+  media Media @relation("ResumeMedia", fields: [mediaId], references: [id], onDelete: Restrict)
+
+  @@map("resumes")
+}
+
+// ---------------------------------------------------------------------------
+// Visitor counter (TD-03)
+// ---------------------------------------------------------------------------
+
+model VisitorEvent {
+  id           String   @id
+  visitId      String   @unique
+  isOwner      Boolean  @default(false)
+  entryPath    String
+  referrerHost String?
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isOwner])
+  @@map("visitor_events")
+}
+
+// ---------------------------------------------------------------------------
+// Singleton configuration rows (id assigned by the application)
+// ---------------------------------------------------------------------------
+
+model SiteConfiguration {
+  id                     String    @id
+  ownerLat               Float?
+  ownerLng               Float?
+  ownerLocationLabel     String?
+  ownerLocationUpdatedAt DateTime?
+  ownerLastSeenAt        DateTime?
+  defaultLocale          Locale    @default(ID)
+  updatedAt              DateTime  @updatedAt
+
+  @@map("site_configuration")
+}
+
+model ContactConfiguration {
+  id             String   @id
+  recipientEmail String
+  fromName       String
+  subjectPrefix  String   @default("[RF Contact]")
+  captchaEnabled Boolean  @default(true)
+  updatedAt      DateTime @updatedAt
+
+  @@map("contact_configuration")
+}

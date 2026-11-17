@@ -1,0 +1,42 @@
+{
+  "name": "@rf/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -b",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -b --pretty",
+    "test": "vitest run",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:seed": "tsx prisma/seed.ts",
+    "postinstall": "prisma generate --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
+    "@prisma/client": "^6.1.0",
+    "@rf/shared": "*",
+    "argon2": "^0.41.1",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "prisma": "^6.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
